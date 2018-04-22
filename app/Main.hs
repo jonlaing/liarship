@@ -5,6 +5,8 @@ import GameState
 import Utils
 import qualified Reducers as R
 import System.Exit (exitSuccess)
+import Board
+import AI
 
 printState :: State a -> IO (State a)
 printState s = do
@@ -31,7 +33,6 @@ printStats s = do
 
 startGame :: State NewGame -> IO (State Fire)
 startGame s = do
-  putStrLn "Game Loop"
   return $ s {winner = Nothing}
 
 fire :: State Fire -> IO (State Defend)
@@ -42,38 +43,38 @@ fire s = do
   coords <- (\s -> read s :: Coord) <$> getLine
   return $ R.fire coords s
 
-defend :: State Defend -> IO (State EndGame)
-defend s = do
+checkDefend :: State Defend -> IO (State EndGame)
+checkDefend s = do
   putStrLn $
     (show $ currentPlayer s) ++
     ", do you want to defend? (y/n)"
   char <- getLine
   case char of
-    "y" -> defend' s
-    "n" -> nodefend' s
+    "y" -> defend s
+    "n" -> nodefend s
     _ -> do
       putStrLn "Please type either 'y' or 'n'"
-      defend' s
+      defend s
 
-defend' :: State Defend -> IO (State EndGame)
-defend' s = case R.defend s of
+defend :: State Defend -> IO (State EndGame)
+defend s = case R.defend s of
   Deflect s' -> do
-    putStrLn "Deflected!"
+    putStrLn $ (show $ currentPlayer s') ++ " Deflected the missle!"
     return s'
   Tricked s' -> do
-    putStrLn "You've wasted a missle!"
+    putStrLn $ (show $ currentPlayer s') ++ " wasted a missle!"
     return s'
   m -> do
     putStrLn $ "Something unexpected happened..." ++ (show m)
     return $ s {activeCoordinate = Nothing}
   
-nodefend' :: State Defend -> IO (State EndGame)
-nodefend' s = case R.nodefend s of
+nodefend :: State Defend -> IO (State EndGame)
+nodefend s = case R.nodefend s of
   DirectHit s' -> do
-    putStrLn "Direct Hit!"
+    putStrLn $ (show $ opponentPlayer s') ++ " made a Direct Hit!"
     return s'
   Miss s' -> do
-    putStrLn "Missed!"
+    putStrLn $ (show $ opponentPlayer s') ++ " Missed!"
     return s'
   m -> do
     putStrLn $ "Something unexpected happened..." ++ (show m)
@@ -83,11 +84,11 @@ checkWinner :: State EndGame -> IO (Either WinState (State NewGame))
 checkWinner s = return $ R.endGame s 
 
 
-gameLoop :: State NewGame -> IO (State NewGame)
-gameLoop init = forever $ do
+gameLoop1 :: State NewGame -> IO (State NewGame)
+gameLoop1 init = forever $ do
   result <- startGame init
     >>= fire
-    >>= defend
+    >>= checkDefendAI defend nodefend
     >>= printStats
     >>= checkWinner
 
@@ -95,23 +96,39 @@ gameLoop init = forever $ do
     Left w -> do
       putStrLn $ show w
       exitSuccess
-    Right s -> gameLoop s
+    Right s -> gameLoop2 s
+
+gameLoop2 :: State NewGame -> IO (State NewGame)
+gameLoop2 init = forever $ do
+  result <- startGame init
+    >>= fireAI
+    >>= checkDefend
+    >>= printStats
+    >>= checkWinner
+
+  case result of
+    Left w -> do
+      putStrLn $ show w
+      exitSuccess
+    Right s -> gameLoop1 s
 
 board :: Board
-board =
-  (take 5 $ repeat $ Ship Unhit ) ++ (take 5 $ repeat Blank) ++
-  (take 5 $ repeat $ Ship Unhit ) ++ (take 5 $ repeat Blank) ++
-  (take 4 $ repeat $ Ship Unhit ) ++ (take 6 $ repeat Blank) ++
-  (take 2 $ repeat $ Ship Unhit ) ++ (take 8 $ repeat Blank) ++
-  (take 1 $ repeat $ Ship Unhit ) ++ (take 9 $ repeat Blank)
+board = Board 10 $ take 100 $ repeat Blank
 
-initialState :: State NewGame
-initialState = State { activeCoordinate = Nothing
-                     , boards = (board, board)
-                     , currentPlayer = Player1
-                     , missles = (10, 10)
-                     , winner = Nothing
-                     }
+allShips :: [ShipType]
+allShips = [Carrier , BattleShip , Cruiser , Submarine , Destroyer]
+
+initialState :: Difficulty -> Board -> Board -> State NewGame
+initialState d b1 b2= State { activeCoordinate = Nothing
+                          , boards = (b1, b2)
+                          , currentPlayer = Human
+                          , missles = (10, 10)
+                          , winner = Nothing
+                          , difficulty = d
+                          }
 
 main :: IO (State NewGame)
-main = gameLoop initialState
+main = do
+  board1 <- randomBoard board allShips
+  board2 <- randomBoard board allShips
+  gameLoop1 $ initialState Expert board1 board2
