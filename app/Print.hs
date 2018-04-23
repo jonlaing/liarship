@@ -1,6 +1,12 @@
 module Print where
 
-import Board
+import Board ( Board(Board)
+             , Tile(Blank, Ship)
+             , ShipState(Hit, Unhit)
+             , BoardWidth
+             , totalShipSizes)
+import GameState
+import Utils (destroyedShips')
 
 escChar :: String
 escChar = "\x1b["
@@ -33,3 +39,30 @@ printBoard (Board w b) = do
   where lines = map unwords $ (map . map) showTile $ boardLines w b []
         nums = map show [0..(w-1)]
         linesWithNums = map (\(n, b') -> n ++ " " ++ b') $ zip nums lines
+
+
+printState :: State a -> IO (State a)
+printState s = do
+  putStrLn $ show s
+  return s
+
+printPlayerStat :: String -> Int -> Int -> Int -> String
+printPlayerStat player missles damaged total =
+  player ++ " |" ++
+  " Missles: " ++ (show missles) ++
+  " Damage: " ++ (show damaged) ++ "/" ++ (show total)
+
+
+printStats :: State a -> IO (State a)
+printStats s = do
+  printBoard $ snd $ boards s
+  putStrLn $ printPlayerStat "Human   " m1 d1 t1
+  putStrLn $ printPlayerStat "Computer" m2 d2 t2
+  putStrLn "\n\n"
+  return s
+  where m1 = fst $ missles s
+        d1 = destroyedShips' $ fst $ boards s
+        t1 = totalShipSizes $ fst $ boards s
+        m2 = snd $ missles s
+        d2 = destroyedShips' $ snd $ boards s
+        t2 = totalShipSizes $ snd $ boards s

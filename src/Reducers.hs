@@ -1,9 +1,19 @@
 module Reducers where
 
 import GameState
-import Board
-import Utils
-import Data.Monoid
+import Board (Coord)
+import Utils ( winByAmmo
+             , winByDestruction
+             , modifyMissles
+             , opponentPlayer
+             , shipAtActiveCoord
+             , hitActiveCoord
+             , switchPlayer)
+import Data.Monoid ( (<>)
+                   , First(First)
+                   , getFirst)
+
+
 
 fire :: Coord -> State Fire -> State Defend
 fire c s = switchPlayer $ s { activeCoordinate = Just c }

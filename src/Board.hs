@@ -1,6 +1,6 @@
 module Board where
 
-import System.Random
+import System.Random (randomRIO)
 import Data.List.Index (indexed)
 
 data ShipState = Unhit
@@ -37,14 +37,10 @@ shipSize Cruiser = 3
 shipSize Submarine = 3
 shipSize Destroyer = 2
 
-totalShipSizes :: Int
-totalShipSizes =
-  foldr (+) 0 $
-  map shipSize [ Carrier
-               , BattleShip
-               , Cruiser
-               , Submarine
-               , Destroyer ]
+totalShipSizes :: Board -> Int
+totalShipSizes (Board _ b) = 
+  length $ filter (/= Blank) b
+
 
 coordToIdx :: BoardWidth -> Coord -> Int
 coordToIdx w (x, y) = (y * w) + x
@@ -55,7 +51,6 @@ idxToCoord w i = (i `mod` w, i `div` w)
 possiblePositions :: Board -> Orientation -> ShipLength -> [Coord]
 possiblePositions b o l = 
   filter (noOverlap b o l) $ boardToCoords b
-
 
 
 boardToCoords :: Board -> [Coord]

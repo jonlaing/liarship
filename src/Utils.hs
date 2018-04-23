@@ -1,8 +1,13 @@
 module Utils where
 
 import GameState
-import Board
-import Data.Maybe
+import Board ( Board(Board)
+             , Coord
+             , Tile(Blank, Ship)
+             , coordToIdx
+             , totalShipSizes
+             , ShipState(Hit))
+import Data.Maybe (fromMaybe)
 
 nextPlayer :: Player -> Player
 nextPlayer Human = Computer
@@ -78,6 +83,6 @@ winByAmmo s = case (missles s) of
 
 winByDestruction :: State a -> Maybe WinState
 winByDestruction s =
-  if (destroyedShips s) == totalShipSizes
+  if (destroyedShips s) == (totalShipSizes $ current boards s)
     then Just $ ByDestruction $ opponentPlayer s
     else Nothing

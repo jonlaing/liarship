@@ -2,37 +2,17 @@ module Main where
 
 import Control.Monad (forever)
 import GameState
-import Utils
+import Utils (destroyedShips')
 import qualified Reducers as R
 import System.Exit (exitSuccess)
-import Board
-import AI
-import Print
-
-
-printState :: State a -> IO (State a)
-printState s = do
-  putStrLn $ show s
-  return s
-
-printPlayerStat :: String -> Int -> Int -> String
-printPlayerStat player missles damaged =
-  player ++ " |" ++
-  " Missles: " ++ (show missles) ++
-  " Damage: " ++ (show damaged) ++ "/" ++ (show totalShipSizes)
-
-
-printStats :: State a -> IO (State a)
-printStats s = do
-  printBoard $ snd $ boards s
-  putStrLn $ printPlayerStat "Human   " m1 d1
-  putStrLn $ printPlayerStat "Computer" m2 d2
-  putStrLn "\n\n"
-  return s
-  where m1 = fst $ missles s
-        d1 = destroyedShips' $ fst $ boards s
-        m2 = snd $ missles s
-        d2 = destroyedShips' $ snd $ boards s
+import Board ( Board(Board)
+             , ShipType(Carrier, BattleShip, Cruiser, Submarine, Destroyer)
+             , Tile(Blank, Ship)
+             , randomBoard
+             , totalShipSizes)
+import qualified AI as AI
+import Print (red, clearChar, printBoard, printStats)
+import Human (fire, defend, nodefend, checkDefend)
 
 
 startGame :: State NewGame -> IO (State Fire)
@@ -40,50 +20,6 @@ startGame s = do
   printStats s
   return $ s {winner = Nothing}
 
-fire :: State Fire -> IO (State Defend)
-fire s = do
-  putStrLn $
-    (show $ currentPlayer s) ++
-    ", enter coodinates to fire on:"
-  coords <- (\s -> read s :: Coord) <$> getLine
-  return $ R.fire coords s
-
-checkDefend :: State Defend -> IO (State EndGame)
-checkDefend s = do
-  putStrLn $
-    (show $ currentPlayer s) ++
-    ", do you want to defend? (y/n)"
-  char <- getLine
-  case char of
-    "y" -> defend s
-    "n" -> nodefend s
-    _ -> do
-      putStrLn "Please type either 'y' or 'n'"
-      defend s
-
-defend :: State Defend -> IO (State EndGame)
-defend s = case R.defend s of
-  Deflect s' -> do
-    putStrLn $ green ++ (show $ currentPlayer s') ++ " Deflected the missle!" ++ clearChar
-    return s'
-  Tricked s' -> do
-    putStrLn $ red ++ (show $ currentPlayer s') ++ " wasted a missle!" ++ clearChar
-    return s'
-  m -> do
-    putStrLn $ "Something unexpected happened..." ++ (show m)
-    return $ s {activeCoordinate = Nothing}
-  
-nodefend :: State Defend -> IO (State EndGame)
-nodefend s = case R.nodefend s of
-  DirectHit s' -> do
-    putStrLn $ green ++ (show $ opponentPlayer s') ++ " made a Direct Hit!" ++ clearChar
-    return s'
-  Miss s' -> do
-    putStrLn $ red ++ (show $ opponentPlayer s') ++ " Missed!" ++ clearChar
-    return s'
-  m -> do
-    putStrLn $ "Something unexpected happened..." ++ (show m)
-    return $ s {activeCoordinate = Nothing}
 
 checkWinner :: State EndGame -> IO (State NewGame)
 checkWinner s = do
@@ -98,10 +34,10 @@ gameLoop :: State NewGame -> IO (State NewGame)
 gameLoop init = forever $ do
   result <- startGame init
     >>= fire
-    >>= checkDefendAI defend nodefend
+    >>= AI.checkDefend defend nodefend
     >>= checkWinner
     >>= startGame
-    >>= fireAI
+    >>= AI.fire
     >>= checkDefend
     >>= checkWinner
 
@@ -137,6 +73,8 @@ selectDifficulty = do
     _ -> do
       putStrLn $ red ++ "That's not an option!" ++ clearChar
       selectDifficulty
+
+
                         
 main :: IO (State NewGame)
 main = do
