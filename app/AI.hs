@@ -38,7 +38,7 @@ fireAI s = do
   coord <- randomCoordOf (opponent boards s) (hitOrBluff (difficulty s) rand)
   putStrLn $
     (show $ currentPlayer s) ++
-    "is firing at " ++
+    " is firing at " ++
     (show $ coord)
   return $ fire coord s
 
@@ -49,11 +49,11 @@ checkDefendAI defend nodefend s = do
       d = difficulty s
       c = activeCoordinate s in
         case (b !!) <$> (coordToIdx w <$> c) of
-          Just Blank ->
+          Just Blank -> do
             if fallForBluff d rand
               then defend s
               else nodefend s
-          Just _ ->
+          Just _ -> do
             if shouldDefend d rand
               then defend s
               else nodefend s

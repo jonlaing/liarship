@@ -7,6 +7,8 @@ import qualified Reducers as R
 import System.Exit (exitSuccess)
 import Board
 import AI
+import Print
+
 
 printState :: State a -> IO (State a)
 printState s = do
@@ -22,8 +24,10 @@ printPlayerStat player missles damaged =
 
 printStats :: State a -> IO (State a)
 printStats s = do
-  putStrLn $ printPlayerStat "Player 1" m1 d1
-  putStrLn $ printPlayerStat "Player 2" m2 d2
+  printBoard $ snd $ boards s
+  putStrLn $ printPlayerStat "Human   " m1 d1
+  putStrLn $ printPlayerStat "Computer" m2 d2
+  putStrLn "\n\n"
   return s
   where m1 = fst $ missles s
         d1 = destroyedShips' $ fst $ boards s
@@ -33,6 +37,7 @@ printStats s = do
 
 startGame :: State NewGame -> IO (State Fire)
 startGame s = do
+  printStats s
   return $ s {winner = Nothing}
 
 fire :: State Fire -> IO (State Defend)
@@ -59,10 +64,10 @@ checkDefend s = do
 defend :: State Defend -> IO (State EndGame)
 defend s = case R.defend s of
   Deflect s' -> do
-    putStrLn $ (show $ currentPlayer s') ++ " Deflected the missle!"
+    putStrLn $ green ++ (show $ currentPlayer s') ++ " Deflected the missle!" ++ clearChar
     return s'
   Tricked s' -> do
-    putStrLn $ (show $ currentPlayer s') ++ " wasted a missle!"
+    putStrLn $ red ++ (show $ currentPlayer s') ++ " wasted a missle!" ++ clearChar
     return s'
   m -> do
     putStrLn $ "Something unexpected happened..." ++ (show m)
@@ -71,46 +76,37 @@ defend s = case R.defend s of
 nodefend :: State Defend -> IO (State EndGame)
 nodefend s = case R.nodefend s of
   DirectHit s' -> do
-    putStrLn $ (show $ opponentPlayer s') ++ " made a Direct Hit!"
+    putStrLn $ green ++ (show $ opponentPlayer s') ++ " made a Direct Hit!" ++ clearChar
     return s'
   Miss s' -> do
-    putStrLn $ (show $ opponentPlayer s') ++ " Missed!"
+    putStrLn $ red ++ (show $ opponentPlayer s') ++ " Missed!" ++ clearChar
     return s'
   m -> do
     putStrLn $ "Something unexpected happened..." ++ (show m)
     return $ s {activeCoordinate = Nothing}
 
-checkWinner :: State EndGame -> IO (Either WinState (State NewGame))
-checkWinner s = return $ R.endGame s 
+checkWinner :: State EndGame -> IO (State NewGame)
+checkWinner s = do
+  case R.endGame s of
+    Left w -> do
+      putStrLn $ show w
+      exitSuccess
+    Right s -> return s
 
 
-gameLoop1 :: State NewGame -> IO (State NewGame)
-gameLoop1 init = forever $ do
+gameLoop :: State NewGame -> IO (State NewGame)
+gameLoop init = forever $ do
   result <- startGame init
     >>= fire
     >>= checkDefendAI defend nodefend
-    >>= printStats
     >>= checkWinner
-
-  case result of
-    Left w -> do
-      putStrLn $ show w
-      exitSuccess
-    Right s -> gameLoop2 s
-
-gameLoop2 :: State NewGame -> IO (State NewGame)
-gameLoop2 init = forever $ do
-  result <- startGame init
+    >>= startGame
     >>= fireAI
     >>= checkDefend
-    >>= printStats
     >>= checkWinner
 
-  case result of
-    Left w -> do
-      putStrLn $ show w
-      exitSuccess
-    Right s -> gameLoop1 s
+  gameLoop result
+
 
 board :: Board
 board = Board 10 $ take 100 $ repeat Blank
@@ -122,13 +118,30 @@ initialState :: Difficulty -> Board -> Board -> State NewGame
 initialState d b1 b2= State { activeCoordinate = Nothing
                           , boards = (b1, b2)
                           , currentPlayer = Human
-                          , missles = (10, 10)
+                          , missles = (50, 50)
                           , winner = Nothing
                           , difficulty = d
                           }
 
+selectDifficulty :: IO (Difficulty)
+selectDifficulty = do
+  putStrLn "What difficulty level would you like?"
+  putStrLn "0 - Beginner   1 - Easy   2 - Medium   3 - Hard   4 - Expert"
+  i <- (\s -> read s :: Int) <$> getLine
+  case i of
+    0 -> return Beginner
+    1 -> return Easy
+    2 -> return Medium
+    3 -> return Hard
+    4 -> return Expert
+    _ -> do
+      putStrLn $ red ++ "That's not an option!" ++ clearChar
+      selectDifficulty
+                        
 main :: IO (State NewGame)
 main = do
   board1 <- randomBoard board allShips
   board2 <- randomBoard board allShips
-  gameLoop1 $ initialState Expert board1 board2
+  putStrLn "Welcome to Liarship!"
+  difficulty <- selectDifficulty
+  gameLoop $ initialState difficulty board1 board2

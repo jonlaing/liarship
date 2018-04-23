@@ -50,7 +50,7 @@ coordToIdx :: BoardWidth -> Coord -> Int
 coordToIdx w (x, y) = (y * w) + x
 
 idxToCoord :: BoardWidth -> Int -> Coord
-idxToCoord w i = (i `mod` (w-1), i `div` (w-1))
+idxToCoord w i = (i `mod` w, i `div` w)
 
 possiblePositions :: Board -> Orientation -> ShipLength -> [Coord]
 possiblePositions b o l = 
@@ -60,7 +60,7 @@ possiblePositions b o l =
 
 boardToCoords :: Board -> [Coord]
 boardToCoords (Board w b) = 
-  [(x `mod` w, y `div` w) | x <- [0..w-1], y <- [0,w..(w*w)-1]]
+  [(x `mod` w, x `div` w) | x <- [0..(w*w)]]
 
 
 noOverlap :: Board -> Orientation -> ShipLength -> Coord -> Bool
@@ -99,5 +99,5 @@ randomBoard b (s:ss) = do
 
 randomCoordOf :: Board -> Tile -> IO Coord
 randomCoordOf (Board w b) t =
-  idxToCoord w <$> (b' !!) <$> randomRIO (0, (length b) - 1)
+  idxToCoord w <$> (b' !!) <$> randomRIO (0, (length b') - 1)
   where b' = map fst $ filter ((== t) . snd) $ indexed b

@@ -33,14 +33,12 @@ destroyedShips s =
   where board = current boards s
 
 modifyBoards :: (Board -> Board) -> Player -> State a -> State b
-modifyBoards f p s = if (currentPlayer s) == p
-  then s { boards = (f $ fst $ boards s, snd $ boards s) }
-  else s { boards = (fst $ boards s, f $ snd $ boards s) }
+modifyBoards f Human s = s { boards = (f $ fst $ boards s, snd $ boards s) }
+modifyBoards f Computer s = s { boards = (fst $ boards s, f $ snd $ boards s) }
 
 modifyMissles :: (Int -> Int) -> Player -> State a -> State b
-modifyMissles f p s = if (currentPlayer s) == p
-  then s { missles = (f $ fst $ missles s , snd $ missles s) }
-  else s { missles = (fst $ missles s, f $ snd $ missles s) }
+modifyMissles f Human s = s { missles = (f $ fst $ missles s , snd $ missles s) }
+modifyMissles f Computer s = s { missles = (fst $ missles s, f $ snd $ missles s) }
 
 
 getCoord :: Board -> Coord -> Maybe Tile
